@@ -471,9 +471,13 @@
                         <input type="number" id="genMax" value="126" min="0" max="255" placeholder="Max (126)">
                     </div>
                     <label style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
-                        <input type="checkbox" id="genWithDelimiters" checked>
-                        <span style="font-size: 0.9em;">Wrap with delimiters</span>
+                        <input type="checkbox" id="genWithDelimiters" checked onchange="updateDelimiterUI()">
+                        <span style="font-size: 0.9em;">Wrap with ANSI delimiters</span>
                     </label>
+                    <div style="font-size: 0.8em; color: #999; margin-top: 5px; padding: 8px; background: #f0f0f0; border-radius: 4px;">
+                        ✓ With delimiters: [SOH]msg[ETX] format for signaling methods<br/>
+                        ✗ Without: raw byte stream for regex/bit-scan methods
+                    </div>
                     <div id="streamContainer" style="margin-top: 15px; padding: 12px; background: #f8f9ff; border-radius: 6px; max-height: 200px; overflow-y: auto; display: none;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                             <strong style="font-size: 0.9em;">Streaming</strong>
@@ -978,12 +982,13 @@
                 ? availableDelimiters.find(d => d.name === delimiterName)
                 : null;
 
-            // Generate count messages, each wrapped with delimiters
+            // Generate either delimited messages or raw byte stream
             const streamInterval = Math.max(1, Math.ceil(count / 100)); // Update every 1% of generation
-            let messageCount = 0;
+            let itemCount = 0;
+            const itemLabel = delimiterPair ? 'messages' : 'bytes';
 
             const generateNextBatch = () => {
-                if (!streamingActive || messageCount >= count) {
+                if (!streamingActive || itemCount >= count) {
                     // Display readable format and update hex input
                     if (streamingActive) {
                         // Show readable format in stream output
@@ -997,37 +1002,47 @@
                         }).join(' ');
                         document.getElementById('dataInput').value = hexString;
                         document.getElementById('inputMode').value = 'hex';
-                        showSuccess(`Generated ${count} messages in ${generatedBytes.length} bytes`);
+                        const summaryMsg = delimiterPair
+                            ? `Generated ${count} delimited messages in ${generatedBytes.length} bytes`
+                            : `Generated ${count} bytes of raw data`;
+                        showSuccess(summaryMsg);
                     }
                     stopStreaming();
                     return;
                 }
 
-                // Generate batch of messages
-                const batchSize = Math.min(streamInterval, count - messageCount);
-                for (let msg = 0; msg < batchSize; msg++) {
-                    // Add start delimiter
-                    if (delimiterPair) {
+                // Generate batch
+                if (delimiterPair) {
+                    // With delimiters: generate "count" messages
+                    const batchSize = Math.min(streamInterval, count - itemCount);
+                    for (let msg = 0; msg < batchSize; msg++) {
+                        // Add start delimiter
                         generatedBytes.push(delimiterPair.startChar);
-                    }
 
-                    // Add 3-10 random data bytes per message
-                    const msgLength = 3 + Math.floor(Math.random() * 8);
-                    for (let i = 0; i < msgLength; i++) {
+                        // Add 3-10 random data bytes per message
+                        const msgLength = 3 + Math.floor(Math.random() * 8);
+                        for (let i = 0; i < msgLength; i++) {
+                            const randomByte = minByte + Math.floor(Math.random() * byteRange);
+                            generatedBytes.push(randomByte);
+                        }
+
+                        // Add end delimiter
+                        generatedBytes.push(delimiterPair.endChar);
+
+                        itemCount++;
+                    }
+                } else {
+                    // Without delimiters: generate "count" random bytes
+                    const batchSize = Math.min(streamInterval, count - itemCount);
+                    for (let i = 0; i < batchSize; i++) {
                         const randomByte = minByte + Math.floor(Math.random() * byteRange);
                         generatedBytes.push(randomByte);
+                        itemCount++;
                     }
-
-                    // Add end delimiter
-                    if (delimiterPair) {
-                        generatedBytes.push(delimiterPair.endChar);
-                    }
-
-                    messageCount++;
                 }
 
                 // Update progress and display
-                document.getElementById('genProgress').textContent = `${messageCount}/${count}`;
+                document.getElementById('genProgress').textContent = `${itemCount}/${count}`;
 
                 // Show readable preview (last 200 bytes with control char names)
                 const previewBytes = generatedBytes.slice(-200);
