@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERA - ANSI Data Extractor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .panel {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: white;
+            margin-bottom: 30px;
+            text-align: center;
+            grid-column: 1 / -1;
+            font-size: 2.5em;
+        }
+
+        h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        h3 {
+            color: #555;
+            margin: 20px 0 10px 0;
+            font-size: 0.95em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Input Section */
+        .input-section {
+            margin-bottom: 25px;
+        }
+
+        .mode-toggle {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            color: #666;
+        }
+
+        .mode-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .input-group {
+            display: none;
+        }
+
+        .input-group.active {
+            display: block;
+        }
+
+        /* File Upload */
+        .drop-zone {
+            border: 3px dashed #667eea;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f8f9ff;
+        }
+
+        .drop-zone.dragover {
+            background: #e8ebff;
+            border-color: #764ba2;
+            transform: scale(1.02);
+        }
+
+        .drop-zone p {
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .drop-zone .file-icon {
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        /* Hex Input */
+        textarea {
+            width: 100%;
+            height: 120px;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.9em;
+            resize: vertical;
+            transition: border-color 0.3s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+
+        .encoding-selector {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .radio-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        input[type="radio"] {
+            cursor: pointer;
+        }
+
+        /* Delimiter Section */
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 0.95em;
+            cursor: pointer;
+            transition: border-color 0.3s;
+            background: white;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .custom-delimiter {
+            display: none;
+            margin-top: 15px;
+            padding: 15px;
+            background: #f8f9ff;
+            border-radius: 8px;
+        }
+
+        .custom-delimiter.active {
+            display: block;
+        }
+
+        .hex-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        input[type="text"] {
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-family: monospace;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        /* Buttons */
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+            width: 100%;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        button.btn-copy {
+            padding: 8px 16px;
+            font-size: 0.85em;
+            background: #667eea;
+            color: white;
+        }
+
+        /* Results Section */
+        .results-container {
+            display: none;
+        }
+
+        .results-container.active {
+            display: block;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .stat-box {
+            background: #f8f9ff;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .stat-label {
+            color: #999;
+            font-size: 0.85em;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            color: #333;
+            font-size: 1.8em;
+            font-weight: 700;
+        }
+
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        .results-table thead {
+            background: #f8f9ff;
+        }
+
+        .results-table th {
+            padding: 12px;
+            text-align: left;
+            color: #666;
+            font-weight: 600;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .results-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .results-table tr:hover {
+            background: #f8f9ff;
+        }
+
+        .sequence-text {
+            font-family: monospace;
+            font-size: 0.85em;
+            max-width: 300px;
+            word-break: break-all;
+            color: #333;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 5px;
+            margin: 20px 0;
+        }
+
+        .pagination button {
+            padding: 8px 12px;
+            font-size: 0.9em;
+            min-width: 40px;
+        }
+
+        .pagination button.active {
+            background: #667eea;
+            color: white;
+        }
+
+        /* Alerts */
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert.error {
+            background: #fee;
+            color: #c33;
+            border-left: 4px solid #c33;
+            display: block;
+        }
+
+        .alert.success {
+            background: #efe;
+            color: #3c3;
+            border-left: 4px solid #3c3;
+            display: block;
+        }
+
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            margin: 40px 0;
+        }
+
+        .loading-spinner.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .btn-export {
+            background: #48bb78;
+            color: white;
+            margin-top: 20px;
+        }
+
+        .btn-export:hover {
+            background: #38a169;
+        }
+
+        /* History Panel */
+        .history-panel {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #e0e0e0;
+        }
+
+        .history-item {
+            background: #f8f9ff;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9em;
+        }
+
+        .history-info {
+            flex: 1;
+        }
+
+        .history-time {
+            color: #999;
+            font-size: 0.85em;
+        }
+
+        .history-count {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                grid-column: 1;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .sequence-text {
+                max-width: 150px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>✨ ERA - ANSI Data Extractor</h1>
+
+    <div class="container">
+        <!-- Left Panel: Input -->
+        <div class="panel">
+            <h2>Input Data</h2>
+
+            <div class="alert error" id="errorAlert"></div>
+            <div class="alert success" id="successAlert"></div>
+
+            <!-- Mode Toggle -->
+            <div class="mode-toggle">
+                <button class="mode-btn active" onclick="setInputMode('file')">📁 File Upload</button>
+                <button class="mode-btn" onclick="setInputMode('paste')">📋 Paste Hex/Base64</button>
+            </div>
+
+            <!-- File Upload Mode -->
+            <div class="input-group active" id="fileInput">
+                <div class="drop-zone" id="dropZone" ondrop="handleDrop(event)" ondragover="handleDragover(event)" ondragleave="handleDragleave(event)">
+                    <div class="file-icon">📎</div>
+                    <p><strong>Drop your file here</strong></p>
+                    <p style="font-size: 0.9em; color: #999;">or click to select (max 100MB)</p>
+                    <input type="file" id="fileInput" accept="*" onchange="handleFileSelect(this.files[0])">
+                </div>
+            </div>
+
+            <!-- Paste Mode -->
+            <div class="input-group" id="pasteInput">
+                <div class="input-section">
+                    <h3>Encoding</h3>
+                    <div class="encoding-selector">
+                        <label class="radio-group">
+                            <input type="radio" name="encoding" value="hex" checked onchange="updateEncoding()">
+                            Hexadecimal
+                        </label>
+                        <label class="radio-group">
+                            <input type="radio" name="encoding" value="base64" onchange="updateEncoding()">
+                            Base64
+                        </label>
+                    </div>
+
+                    <h3>Data</h3>
+                    <textarea id="hexInput" placeholder="Paste your hex or base64 data here..."></textarea>
+
+                    <button class="btn-primary" style="margin-top: 10px;" onclick="extractFromPaste()">Extract from Paste</button>
+                </div>
+            </div>
+
+            <!-- Delimiter Selection -->
+            <div class="input-section" style="margin-top: 30px;">
+                <h3>Delimiter Pair</h3>
+                <select id="delimiterSelect" onchange="updateDelimiterInfo()">
+                    <option value="">Loading delimiters...</option>
+                </select>
+
+                <div class="custom-delimiter" id="customDelimiter">
+                    <p style="margin-bottom: 10px; color: #666;">Enter custom hex values:</p>
+                    <div class="hex-inputs">
+                        <input type="text" id="customStart" placeholder="Start (e.g. 0x01)">
+                        <input type="text" id="customEnd" placeholder="End (e.g. 0x03)">
+                    </div>
+                    <button class="btn-primary btn-secondary" onclick="applyCustomDelimiter()">Apply Custom</button>
+                </div>
+            </div>
+
+            <!-- History -->
+            <div class="history-panel" id="historyPanel" style="display: none;">
+                <h3>Recent Extractions</h3>
+                <div id="historyList"></div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Results -->
+        <div class="panel">
+            <h2>Results</h2>
+
+            <div class="loading-spinner" id="loadingSpinner">
+                <div class="spinner"></div>
+                <p style="margin-top: 15px; color: #667eea;">Processing...</p>
+            </div>
+
+            <div class="results-container" id="resultsContainer">
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <div class="stat-label">Messages Found</div>
+                        <div class="stat-value" id="statCount">-</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Processing Time</div>
+                        <div class="stat-value" id="statDuration">-</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Data Processed</div>
+                        <div class="stat-value" id="statBits">-</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Avg Message Length</div>
+                        <div class="stat-value" id="statAvgLength">-</div>
+                    </div>
+                </div>
+
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Content (First 100 chars)</th>
+                            <th>Length</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsTableBody">
+                    </tbody>
+                </table>
+
+                <div class="pagination" id="pagination"></div>
+
+                <button class="btn-primary btn-export" onclick="exportJSON()">📥 Export as JSON</button>
+            </div>
+
+            <div style="text-align: center; color: #999; margin-top: 50px;" id="emptyMessage">
+                <p>👆 Select input method and start extracting</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        let currentResult = null;
+        let currentPage = 1;
+        const itemsPerPage = 10;
+        let history = [];
+
+        // Initialize
+        async function init() {
+            loadDelimiters();
+            loadHistory();
+        }
+
+        // Load delimiters from API
+        async function loadDelimiters() {
+            try {
+                const response = await fetch(`${API_BASE}/delimiters`);
+                const data = await response.json();
+
+                const select = document.getElementById('delimiterSelect');
+                select.innerHTML = '';
+
+                data.delimiters.forEach(delim => {
+                    const option = document.createElement('option');
+                    option.value = delim.name;
+                    option.textContent = `${delim.name} - ${delim.description}`;
+                    select.appendChild(option);
+                });
+
+                select.value = 'SOH/ETX';
+                updateDelimiterInfo();
+            } catch (error) {
+                showError('Failed to load delimiters');
+            }
+        }
+
+        // Set input mode
+        function setInputMode(mode) {
+            document.querySelectorAll('.input-group').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.mode-btn').forEach(el => el.classList.remove('active'));
+
+            if (mode === 'file') {
+                document.getElementById('fileInput').classList.add('active');
+                document.querySelector('[onclick="setInputMode(\'file\')"]').classList.add('active');
+            } else {
+                document.getElementById('pasteInput').classList.add('active');
+                document.querySelector('[onclick="setInputMode(\'paste\')"]').classList.add('active');
+            }
+        }
+
+        // File upload handlers
+        function handleDragover(event) {
+            event.preventDefault();
+            document.getElementById('dropZone').classList.add('dragover');
+        }
+
+        function handleDragleave(event) {
+            event.preventDefault();
+            document.getElementById('dropZone').classList.remove('dragover');
+        }
+
+        function handleDrop(event) {
+            event.preventDefault();
+            document.getElementById('dropZone').classList.remove('dragover');
+            const files = event.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelect(files[0]);
+            }
+        }
+
+        function handleFileSelect(file) {
+            document.getElementById('dropZone').classList.remove('dragover');
+
+            if (file.size > 100 * 1024 * 1024) {
+                showError('File exceeds 100MB limit');
+                return;
+            }
+
+            extractFromFile(file);
+        }
+
+        // Extract from file
+        async function extractFromFile(file) {
+            showLoading(true);
+
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const delimiter = document.getElementById('delimiterSelect').value;
+                const customStart = document.getElementById('customStart').value;
+                const customEnd = document.getElementById('customEnd').value;
+
+                const params = new URLSearchParams();
+                params.append('delimiter', delimiter);
+                if (customStart && customEnd) {
+                    params.append('customStart', customStart);
+                    params.append('customEnd', customEnd);
+                }
+
+                const response = await fetch(`${API_BASE}/extract-file?${params}`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(await response.text());
+                }
+
+                const result = await response.json();
+                displayResult(result);
+                addToHistory(result);
+                showSuccess(`Found ${result.statistics.count} messages`);
+            } catch (error) {
+                showError(`Extraction failed: ${error.message}`);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Extract from paste
+        async function extractFromPaste() {
+            const data = document.getElementById('hexInput').value.trim();
+            if (!data) {
+                showError('Please enter data');
+                return;
+            }
+
+            const encoding = document.querySelector('input[name="encoding"]:checked').value;
+            const delimiter = document.getElementById('delimiterSelect').value;
+            const customStart = document.getElementById('customStart').value;
+            const customEnd = document.getElementById('customEnd').value;
+
+            showLoading(true);
+
+            try {
+                const payload = {
+                    data,
+                    encoding,
+                    delimiter,
+                    ...(customStart && customEnd && { customStart, customEnd })
+                };
+
+                const response = await fetch(`${API_BASE}/extract`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(await response.text());
+                }
+
+                const result = await response.json();
+                displayResult(result);
+                addToHistory(result);
+                showSuccess(`Found ${result.statistics.count} messages`);
+            } catch (error) {
+                showError(`Extraction failed: ${error.message}`);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Display results
+        function displayResult(result) {
+            currentResult = result;
+            currentPage = 1;
+
+            document.getElementById('emptyMessage').style.display = 'none';
+            document.getElementById('resultsContainer').classList.add('active');
+
+            // Stats
+            document.getElementById('statCount').textContent = result.statistics.count;
+            document.getElementById('statDuration').textContent = result.statistics.duration.toFixed(2) + 'ms';
+            document.getElementById('statBits').textContent = (result.statistics.bitsProcessed / 8 / 1024).toFixed(2) + 'KB';
+            document.getElementById('statAvgLength').textContent = result.statistics.avgMessageLength.toFixed(0);
+
+            renderTable();
+            renderPagination();
+        }
+
+        // Render results table
+        function renderTable() {
+            const start = (currentPage - 1) * itemsPerPage;
+            const end = start + itemsPerPage;
+            const pageItems = currentResult.sequences.slice(start, end);
+
+            const tbody = document.getElementById('resultsTableBody');
+            tbody.innerHTML = pageItems.map((seq, idx) => `
+                <tr>
+                    <td>${start + idx + 1}</td>
+                    <td><span class="sequence-text">${escapeHtml(seq.substring(0, 100))}</span></td>
+                    <td>${seq.length}</td>
+                    <td><button class="btn-copy" onclick="copyToClipboard('${escapeHtml(seq)}')">Copy</button></td>
+                </tr>
+            `).join('');
+        }
+
+        // Render pagination
+        function renderPagination() {
+            const totalPages = Math.ceil(currentResult.sequences.length / itemsPerPage);
+            const container = document.getElementById('pagination');
+            container.innerHTML = '';
+
+            for (let i = 1; i <= totalPages; i++) {
+                const btn = document.createElement('button');
+                btn.textContent = i;
+                btn.className = i === currentPage ? 'active' : '';
+                btn.onclick = () => {
+                    currentPage = i;
+                    renderTable();
+                    renderPagination();
+                };
+                container.appendChild(btn);
+            }
+        }
+
+        // Copy to clipboard
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showSuccess('Copied to clipboard!');
+            });
+        }
+
+        // Export JSON
+        function exportJSON() {
+            const json = JSON.stringify(currentResult, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `extraction-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // History management
+        function addToHistory(result) {
+            history.unshift({
+                id: result.id,
+                delimiter: result.delimiter.name,
+                count: result.statistics.count,
+                timestamp: result.timestamp,
+                result
+            });
+            if (history.length > 20) history.pop();
+            saveHistory();
+            renderHistory();
+        }
+
+        function saveHistory() {
+            localStorage.setItem('era_history', JSON.stringify(history));
+        }
+
+        function loadHistory() {
+            const stored = localStorage.getItem('era_history');
+            history = stored ? JSON.parse(stored) : [];
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const historyPanel = document.getElementById('historyPanel');
+            const historyList = document.getElementById('historyList');
+
+            if (history.length === 0) {
+                historyPanel.style.display = 'none';
+                return;
+            }
+
+            historyPanel.style.display = 'block';
+            historyList.innerHTML = history.map((item, idx) => `
+                <div class="history-item">
+                    <div class="history-info">
+                        <div><strong>${item.delimiter}</strong> - <span class="history-count">${item.count} messages</span></div>
+                        <div class="history-time">${new Date(item.timestamp).toLocaleString()}</div>
+                    </div>
+                    <div style="display: flex; gap: 5px;">
+                        <button class="btn-secondary" style="padding: 6px 12px; font-size: 0.8em;" onclick="loadFromHistory(${idx})">View</button>
+                        <button class="btn-secondary" style="padding: 6px 12px; font-size: 0.8em;" onclick="removeFromHistory(${idx})">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function loadFromHistory(idx) {
+            const item = history[idx];
+            displayResult(item.result);
+        }
+
+        function removeFromHistory(idx) {
+            history.splice(idx, 1);
+            saveHistory();
+            renderHistory();
+        }
+
+        // Delimiter info
+        function updateDelimiterInfo() {
+            const select = document.getElementById('delimiterSelect');
+            const customDelim = document.getElementById('customDelimiter');
+            customDelim.classList.remove('active');
+            document.getElementById('customStart').value = '';
+            document.getElementById('customEnd').value = '';
+        }
+
+        function applyCustomDelimiter() {
+            const start = document.getElementById('customStart').value;
+            const end = document.getElementById('customEnd').value;
+            if (!start || !end) {
+                showError('Enter both start and end hex values');
+                return;
+            }
+        }
+
+        // Alerts
+        function showError(message) {
+            const alert = document.getElementById('errorAlert');
+            alert.textContent = message;
+            alert.style.display = 'block';
+            setTimeout(() => { alert.style.display = 'none'; }, 5000);
+        }
+
+        function showSuccess(message) {
+            const alert = document.getElementById('successAlert');
+            alert.textContent = message;
+            alert.style.display = 'block';
+            setTimeout(() => { alert.style.display = 'none'; }, 3000);
+        }
+
+        function showLoading(isLoading) {
+            document.getElementById('loadingSpinner').classList.toggle('active', isLoading);
+        }
+
+        function updateEncoding() {
+            // Update placeholder based on encoding
+        }
+
+        // Helpers
+        function escapeHtml(text) {
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        // Click to select file
+        document.getElementById('dropZone').addEventListener('click', () => {
+            document.getElementById('fileInput').click();
+        });
+
+        // Initialize on load
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>

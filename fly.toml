@@ -1,0 +1,36 @@
+# Fly.io configuration for ERA Vapor
+
+app = "era-extractor"
+primary_region = "cdg"  # Paris (change to your preferred region)
+
+[env]
+  LOG_LEVEL = "info"
+  NODE_ENV = "production"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 8080
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 1000
+    soft_limit = 800
+
+[[services.tcp_checks]]
+  interval = "10s"
+  timeout = "5s"
+  grace_period = "5s"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[deploy]
+  release_command = "echo 'Release complete'"

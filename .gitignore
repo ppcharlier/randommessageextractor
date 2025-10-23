@@ -1,0 +1,59 @@
+# Swift
+.build
+.swiftpm
+Build
+*.pbxproj
+.xcodeproj
+.xcworkspace
+xcUserData
+DerivedData
+
+# Xcode
+*.xcodeproj
+*.xcworkspace
+.DS_Store
+*.xcarchive
+
+# Package managers
+.swiftpm
+
+# Dependencies
+Packages
+Package.resolved
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+dist
+build
+*.app
+*.dSYM
+*.o
+*.a
+*.lib
+*.so
+
+# Test coverage
+.coverage
+coverage/
+*.profraw
+
+# Logs
+*.log
+logs/
+
+# Deployment
+.fly
+*.pem
+secrets.json
