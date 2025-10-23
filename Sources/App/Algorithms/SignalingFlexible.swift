@@ -10,7 +10,7 @@ struct ExtractionStatistics: Codable {
     let maxMessageLength: Int
 }
 
-struct ExtractionResult: Content {
+struct LegacyExtractionResult: Content {
     let id: String
     let sequences: [String]
     let statistics: ExtractionStatistics
@@ -31,7 +31,7 @@ class SignalingFlexible {
         data: Data,
         startDelimiter: UInt8,
         endDelimiter: UInt8
-    ) -> ExtractionResult {
+    ) -> LegacyExtractionResult {
         let startTime = Date()
 
         let bytes = [UInt8](data)
@@ -85,7 +85,7 @@ class SignalingFlexible {
         let formatter = ISO8601DateFormatter()
         let timestamp = formatter.string(from: Date())
 
-        return ExtractionResult(
+        return LegacyExtractionResult(
             id: UUID().uuidString,
             sequences: sequences,
             statistics: stats,

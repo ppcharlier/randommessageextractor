@@ -35,7 +35,7 @@ func extractionRoutes(_ app: Application) throws {
     }
 
     // POST /api/extract - Extract from hex/base64 data
-    app.post("api", "extract") { req -> ExtractionResult in
+    app.post("api", "extract") { req -> LegacyExtractionResult in
         let extractRequest = try req.content.decode(ExtractRequest.self)
 
         // Decode data based on encoding type
@@ -78,7 +78,7 @@ func extractionRoutes(_ app: Application) throws {
     }
 
     // POST /api/extract-file - Extract from uploaded file (raw bytes)
-    app.on(.POST, "api", "extract-file") { req -> ExtractionResult in
+    app.on(.POST, "api", "extract-file") { req -> LegacyExtractionResult in
         // Read raw body bytes - for now, return a simple error message
         // This endpoint expects raw binary data
         let bodyData = Data()  // Empty for now - will be populated from request

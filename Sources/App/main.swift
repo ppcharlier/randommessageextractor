@@ -20,6 +20,7 @@ app.middleware.use(FileMiddleware(publicDirectory: app.directory.publicDirectory
 
 // Routes
 try extractionRoutes(app)
+try extractionRoutesV3(app)
 try webSocketRoutes(app)
 try generatorRoutes(app)
 
