@@ -11,30 +11,30 @@ struct ExtractionAdvancedRequest: Content {
 }
 
 struct SearchConfigRequest: Codable {
-    var useSignalingChars: Bool = true
-    var minSequenceLength: Int = 1
-    var maxSequenceLength: Int = 10000
-    var asciiOnly: Bool = false
-    var requireSOHStart: Bool = false
-    var requireSTXStart: Bool = false
-    var acceptETXEnd: Bool = true
-    var acceptEOTEnd: Bool = true
+    var useSignalingChars: Bool?
+    var minSequenceLength: Int?
+    var maxSequenceLength: Int?
+    var asciiOnly: Bool?
+    var requireSOHStart: Bool?
+    var requireSTXStart: Bool?
+    var acceptETXEnd: Bool?
+    var acceptEOTEnd: Bool?
     var delimiter: String?  // "SOH/ETX" etc
     var customStart: String?  // "0x01"
     var customEnd: String?    // "0x03"
-    var reverseEach64BitWord: Bool = false
+    var reverseEach64BitWord: Bool?
 
     func toSearchConfig() -> SearchConfig {
         var config = SearchConfig()
-        config.useSignalingChars = useSignalingChars
-        config.minSequenceLength = minSequenceLength
-        config.maxSequenceLength = maxSequenceLength
-        config.asciiOnly = asciiOnly
-        config.requireSOHStart = requireSOHStart
-        config.requireSTXStart = requireSTXStart
-        config.acceptETXEnd = acceptETXEnd
-        config.acceptEOTEnd = acceptEOTEnd
-        config.reverseEach64BitWord = reverseEach64BitWord
+        config.useSignalingChars = useSignalingChars ?? true
+        config.minSequenceLength = minSequenceLength ?? 1
+        config.maxSequenceLength = maxSequenceLength ?? 10000
+        config.asciiOnly = asciiOnly ?? false
+        config.requireSOHStart = requireSOHStart ?? false
+        config.requireSTXStart = requireSTXStart ?? false
+        config.acceptETXEnd = acceptETXEnd ?? true
+        config.acceptEOTEnd = acceptEOTEnd ?? true
+        config.reverseEach64BitWord = reverseEach64BitWord ?? false
 
         // Apply delimiter
         if let delimiterName = delimiter {

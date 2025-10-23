@@ -973,29 +973,18 @@
             let generatedBytes = [];
             let byteRange = maxByte - minByte + 1;
 
-            // Add start delimiter if enabled
-            if (withDelimiters) {
-                const delim = availableDelimiters.find(d => d.name === delimiterName);
-                if (delim) {
-                    generatedBytes.push(delim.startChar);
-                }
-            }
+            // Get the delimiter pair
+            const delimiterPair = withDelimiters
+                ? availableDelimiters.find(d => d.name === delimiterName)
+                : null;
 
-            // Generate bytes in streaming fashion
+            // Generate count messages, each wrapped with delimiters
             const streamInterval = Math.max(1, Math.ceil(count / 100)); // Update every 1% of generation
-            let currentCount = 0;
+            let messageCount = 0;
 
             const generateNextBatch = () => {
-                if (!streamingActive || currentCount >= count) {
-                    // Add end delimiter if enabled
-                    if (withDelimiters && streamingActive) {
-                        const delim = availableDelimiters.find(d => d.name === delimiterName);
-                        if (delim) {
-                            generatedBytes.push(delim.endChar);
-                        }
-                    }
-
-                    // Convert to hex and update input
+                if (!streamingActive || messageCount >= count) {
+                    // Conversion to hex and update input
                     if (streamingActive) {
                         const hexString = generatedBytes.map(b => {
                             const hex = b.toString(16).toUpperCase();
@@ -1003,22 +992,37 @@
                         }).join(' ');
                         document.getElementById('dataInput').value = hexString;
                         document.getElementById('inputMode').value = 'hex';
-                        showSuccess('Streaming generation complete!');
+                        showSuccess(`Generated ${count} messages in ${generatedBytes.length} bytes`);
                     }
                     stopStreaming();
                     return;
                 }
 
-                // Generate batch
-                const batchSize = Math.min(streamInterval, count - currentCount);
-                for (let i = 0; i < batchSize; i++) {
-                    const randomByte = minByte + Math.floor(Math.random() * byteRange);
-                    generatedBytes.push(randomByte);
-                    currentCount++;
+                // Generate batch of messages
+                const batchSize = Math.min(streamInterval, count - messageCount);
+                for (let msg = 0; msg < batchSize; msg++) {
+                    // Add start delimiter
+                    if (delimiterPair) {
+                        generatedBytes.push(delimiterPair.startChar);
+                    }
+
+                    // Add 3-10 random data bytes per message
+                    const msgLength = 3 + Math.floor(Math.random() * 8);
+                    for (let i = 0; i < msgLength; i++) {
+                        const randomByte = minByte + Math.floor(Math.random() * byteRange);
+                        generatedBytes.push(randomByte);
+                    }
+
+                    // Add end delimiter
+                    if (delimiterPair) {
+                        generatedBytes.push(delimiterPair.endChar);
+                    }
+
+                    messageCount++;
                 }
 
                 // Update progress and display
-                document.getElementById('genProgress').textContent = `${currentCount}/${count}`;
+                document.getElementById('genProgress').textContent = `${messageCount}/${count}`;
 
                 // Show hex preview (last 100 bytes)
                 const previewBytes = generatedBytes.slice(-100);
