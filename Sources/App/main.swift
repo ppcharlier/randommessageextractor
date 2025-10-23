@@ -24,9 +24,14 @@ try extractionRoutesV3(app)
 try webSocketRoutes(app)
 try generatorRoutes(app)
 
-// Serve index.html for all non-API routes (SPA fallback)
+// Serve index-v3.html for root and all non-API routes (SPA fallback)
+app.get { req -> Response in
+    let indexPath = app.directory.publicDirectory + "index-v3.html"
+    return try req.fileio.streamFile(at: indexPath)
+}
+
 app.get("**") { req -> Response in
-    let indexPath = app.directory.publicDirectory + "index.html"
+    let indexPath = app.directory.publicDirectory + "index-v3.html"
     return try req.fileio.streamFile(at: indexPath)
 }
 

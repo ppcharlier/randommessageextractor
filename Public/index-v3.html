@@ -448,11 +448,42 @@
 
             <div class="section">
                 <h3>Data Input</h3>
-                <select id="inputMode" onchange="updateInputMode()">
-                    <option value="hex">Hexadecimal</option>
-                    <option value="base64">Base64</option>
-                </select>
-                <textarea id="dataInput" placeholder="Paste your hex or base64 data here..."></textarea>
+                <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                    <button class="btn-secondary" onclick="switchInputTab('input')" id="tabInput" style="width: auto; flex: 1; margin-top: 0; background: #667eea; color: white;">📄 Paste</button>
+                    <button class="btn-secondary" onclick="switchInputTab('generate')" id="tabGenerate" style="width: auto; flex: 1; margin-top: 0;">🎲 Stream</button>
+                </div>
+
+                <div id="pasteTab" style="display: block;">
+                    <select id="inputMode" onchange="updateInputMode()">
+                        <option value="hex">Hexadecimal</option>
+                        <option value="base64">Base64</option>
+                    </select>
+                    <textarea id="dataInput" placeholder="Paste your hex or base64 data here..."></textarea>
+                </div>
+
+                <div id="generateTab" style="display: none;">
+                    <h4 style="margin-top: 10px; color: #666;">Generator Settings</h4>
+                    <label style="font-size: 0.85em; color: #666;">Count</label>
+                    <input type="number" id="genCount" value="50" min="1" max="10000">
+                    <label style="font-size: 0.85em; color: #666;">Range (bytes)</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="number" id="genMin" value="32" min="0" max="255" placeholder="Min (32)">
+                        <input type="number" id="genMax" value="126" min="0" max="255" placeholder="Max (126)">
+                    </div>
+                    <label style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
+                        <input type="checkbox" id="genWithDelimiters" checked>
+                        <span style="font-size: 0.9em;">Wrap with delimiters</span>
+                    </label>
+                    <div id="streamContainer" style="margin-top: 15px; padding: 12px; background: #f8f9ff; border-radius: 6px; max-height: 200px; overflow-y: auto; display: none;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <strong style="font-size: 0.9em;">Streaming</strong>
+                            <span id="genProgress" style="font-size: 0.85em; color: #999;">0/50</span>
+                        </div>
+                        <div id="streamOutput" style="font-family: monospace; font-size: 0.8em; color: #333; white-space: pre-wrap; word-break: break-all;"></div>
+                    </div>
+                    <button class="btn-primary" onclick="startStreaming()" style="margin-top: 10px;">▶ Start Streaming</button>
+                    <button class="btn-secondary" id="stopBtn" onclick="stopStreaming()" style="display: none; margin-top: 10px;">⏹ Stop</button>
+                </div>
             </div>
 
             <div class="section">
@@ -892,6 +923,128 @@
 
         function updateInputMode() {
             // Could add encoding-specific UI here
+        }
+
+        // Streaming generation variables
+        let streamingActive = false;
+        let streamingTimeout = null;
+
+        function switchInputTab(tabName) {
+            // Update button styling
+            document.getElementById('tabInput').style.background = tabName === 'input' ? '#667eea' : '';
+            document.getElementById('tabInput').style.color = tabName === 'input' ? 'white' : '';
+            document.getElementById('tabGenerate').style.background = tabName === 'generate' ? '#667eea' : '';
+            document.getElementById('tabGenerate').style.color = tabName === 'generate' ? 'white' : '';
+
+            // Show/hide content
+            document.getElementById('pasteTab').style.display = tabName === 'input' ? 'block' : 'none';
+            document.getElementById('generateTab').style.display = tabName === 'generate' ? 'block' : 'none';
+
+            // Reset streaming if switching away
+            if (tabName !== 'generate' && streamingActive) {
+                stopStreaming();
+            }
+        }
+
+        function startStreaming() {
+            const count = parseInt(document.getElementById('genCount').value) || 50;
+            const minByte = parseInt(document.getElementById('genMin').value) || 32;
+            const maxByte = parseInt(document.getElementById('genMax').value) || 126;
+            const withDelimiters = document.getElementById('genWithDelimiters').checked;
+            const delimiterName = document.getElementById('delimiterSelect').value || 'SOH/ETX';
+
+            if (count < 1 || count > 10000) {
+                showError('Count must be between 1 and 10000');
+                return;
+            }
+
+            if (minByte < 0 || maxByte > 255 || minByte > maxByte) {
+                showError('Invalid byte range');
+                return;
+            }
+
+            streamingActive = true;
+            document.getElementById('streamContainer').style.display = 'block';
+            document.getElementById('streamOutput').textContent = '';
+            document.getElementById('genProgress').textContent = `0/${count}`;
+            document.querySelector('button[onclick="startStreaming()"]').style.display = 'none';
+            document.getElementById('stopBtn').style.display = 'block';
+
+            let generatedBytes = [];
+            let byteRange = maxByte - minByte + 1;
+
+            // Add start delimiter if enabled
+            if (withDelimiters) {
+                const delim = availableDelimiters.find(d => d.name === delimiterName);
+                if (delim) {
+                    generatedBytes.push(delim.startChar);
+                }
+            }
+
+            // Generate bytes in streaming fashion
+            const streamInterval = Math.max(1, Math.ceil(count / 100)); // Update every 1% of generation
+            let currentCount = 0;
+
+            const generateNextBatch = () => {
+                if (!streamingActive || currentCount >= count) {
+                    // Add end delimiter if enabled
+                    if (withDelimiters && streamingActive) {
+                        const delim = availableDelimiters.find(d => d.name === delimiterName);
+                        if (delim) {
+                            generatedBytes.push(delim.endChar);
+                        }
+                    }
+
+                    // Convert to hex and update input
+                    if (streamingActive) {
+                        const hexString = generatedBytes.map(b => {
+                            const hex = b.toString(16).toUpperCase();
+                            return hex.length === 1 ? '0' + hex : hex;
+                        }).join(' ');
+                        document.getElementById('dataInput').value = hexString;
+                        document.getElementById('inputMode').value = 'hex';
+                        showSuccess('Streaming generation complete!');
+                    }
+                    stopStreaming();
+                    return;
+                }
+
+                // Generate batch
+                const batchSize = Math.min(streamInterval, count - currentCount);
+                for (let i = 0; i < batchSize; i++) {
+                    const randomByte = minByte + Math.floor(Math.random() * byteRange);
+                    generatedBytes.push(randomByte);
+                    currentCount++;
+                }
+
+                // Update progress and display
+                document.getElementById('genProgress').textContent = `${currentCount}/${count}`;
+
+                // Show hex preview (last 100 bytes)
+                const previewBytes = generatedBytes.slice(-100);
+                const previewHex = previewBytes.map(b => {
+                    const hex = b.toString(16).toUpperCase();
+                    return hex.length === 1 ? '0' + hex : hex;
+                }).join(' ');
+                document.getElementById('streamOutput').textContent = previewHex;
+
+                if (streamingActive) {
+                    streamingTimeout = setTimeout(generateNextBatch, 10);
+                }
+            };
+
+            generateNextBatch();
+        }
+
+        function stopStreaming() {
+            streamingActive = false;
+            if (streamingTimeout) {
+                clearTimeout(streamingTimeout);
+                streamingTimeout = null;
+            }
+            document.getElementById('streamContainer').style.display = 'none';
+            document.querySelector('button[onclick="startStreaming()"]').style.display = 'block';
+            document.getElementById('stopBtn').style.display = 'none';
         }
 
         // Initialize on load
