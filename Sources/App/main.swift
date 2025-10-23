@@ -21,6 +21,7 @@ app.middleware.use(FileMiddleware(publicDirectory: app.directory.publicDirectory
 // Routes
 try extractionRoutes(app)
 try webSocketRoutes(app)
+try generatorRoutes(app)
 
 // Serve index.html for all non-API routes (SPA fallback)
 app.get("**") { req -> Response in

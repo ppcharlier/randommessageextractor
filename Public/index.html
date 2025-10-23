@@ -535,6 +535,7 @@
             <div class="mode-toggle">
                 <button class="mode-btn active" onclick="setInputMode('file')">📁 File Upload</button>
                 <button class="mode-btn" onclick="setInputMode('paste')">📋 Paste Hex/Base64</button>
+                <button class="mode-btn" onclick="setInputMode('generate')">🎲 Generate Test Data</button>
             </div>
 
             <!-- File Upload Mode -->
@@ -566,6 +567,58 @@
                     <textarea id="hexInput" placeholder="Paste your hex or base64 data here..."></textarea>
 
                     <button class="btn-primary" style="margin-top: 10px;" onclick="extractFromPaste()">Extract from Paste</button>
+                </div>
+            </div>
+
+            <!-- Generator Mode -->
+            <div class="input-group" id="generateInput">
+                <div class="input-section">
+                    <h3>Generator Type</h3>
+                    <select id="generatorType" onchange="updateGeneratorPreview()">
+                        <option value="random">Random Messages</option>
+                        <option value="pattern">Pattern Messages</option>
+                        <option value="ansi">ANSI Payload</option>
+                        <option value="protobuf">Protobuf Style</option>
+                        <option value="csv">CSV Data</option>
+                    </select>
+
+                    <!-- Random Options -->
+                    <div id="randomOptions" style="margin-top: 15px;">
+                        <h3>Count</h3>
+                        <input type="number" id="msgCount" value="5" min="1" max="100">
+
+                        <h3>Message Length</h3>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="number" id="minLen" value="10" min="1" placeholder="Min">
+                            <input type="number" id="maxLen" value="50" min="1" placeholder="Max">
+                        </div>
+                    </div>
+
+                    <!-- Pattern Options -->
+                    <div id="patternOptions" style="display: none; margin-top: 15px;">
+                        <h3>Pattern</h3>
+                        <select id="patternType">
+                            <option value="hello">Hello World</option>
+                            <option value="numbers">Numbers</option>
+                            <option value="mixed">Mixed UUID</option>
+                        </select>
+                        <h3>Repetitions</h3>
+                        <input type="number" id="patternReps" value="5" min="1" max="100">
+                    </div>
+
+                    <h3>Output Encoding</h3>
+                    <div style="display: flex; gap: 10px;">
+                        <label style="display: flex; align-items: center; gap: 5px;">
+                            <input type="radio" name="genEncoding" value="hex" checked>
+                            Hex
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 5px;">
+                            <input type="radio" name="genEncoding" value="base64">
+                            Base64
+                        </label>
+                    </div>
+
+                    <button class="btn-primary" style="margin-top: 15px;" onclick="generateAndExtract()">🎲 Generate & Extract</button>
                 </div>
             </div>
 
@@ -696,9 +749,98 @@
             if (mode === 'file') {
                 document.getElementById('fileInput').classList.add('active');
                 document.querySelector('[onclick="setInputMode(\'file\')"]').classList.add('active');
-            } else {
+            } else if (mode === 'paste') {
                 document.getElementById('pasteInput').classList.add('active');
                 document.querySelector('[onclick="setInputMode(\'paste\')"]').classList.add('active');
+            } else if (mode === 'generate') {
+                document.getElementById('generateInput').classList.add('active');
+                document.querySelector('[onclick="setInputMode(\'generate\')"]').classList.add('active');
+            }
+        }
+
+        // ============= Generator Functions =============
+        function updateGeneratorPreview() {
+            const genType = document.getElementById('generatorType').value;
+            const randomOpts = document.getElementById('randomOptions');
+            const patternOpts = document.getElementById('patternOptions');
+
+            // Show/hide options based on type
+            if (genType === 'random') {
+                randomOpts.style.display = 'block';
+                patternOpts.style.display = 'none';
+            } else if (genType === 'pattern') {
+                randomOpts.style.display = 'none';
+                patternOpts.style.display = 'block';
+            } else {
+                randomOpts.style.display = 'none';
+                patternOpts.style.display = 'none';
+            }
+        }
+
+        async function generateAndExtract() {
+            const genType = document.getElementById('generatorType').value;
+            const encoding = document.querySelector('input[name="genEncoding"]:checked').value;
+            const delimiter = document.getElementById('delimiterSelect').value;
+
+            showLoading(true);
+
+            try {
+                // Build generator request
+                const payload = {
+                    type: genType,
+                    delimiter: delimiter,
+                    encoding: encoding
+                };
+
+                // Add type-specific parameters
+                if (genType === 'random') {
+                    payload.messageCount = parseInt(document.getElementById('msgCount').value) || 5;
+                    payload.minLength = parseInt(document.getElementById('minLen').value) || 10;
+                    payload.maxLength = parseInt(document.getElementById('maxLen').value) || 50;
+                } else if (genType === 'pattern') {
+                    payload.pattern = document.getElementById('patternType').value;
+                    payload.messageCount = parseInt(document.getElementById('patternReps').value) || 5;
+                }
+
+                // Call generator API
+                const genResponse = await fetch(`${API_BASE}/generator/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!genResponse.ok) {
+                    throw new Error(await genResponse.text());
+                }
+
+                const generated = await genResponse.json();
+                console.log('[Generator] Generated', generated.length, 'bytes');
+
+                // Now extract from the generated data
+                const extractPayload = {
+                    data: generated.data,
+                    encoding: generated.encoding,
+                    delimiter: delimiter
+                };
+
+                const extractResponse = await fetch(`${API_BASE}/extract`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(extractPayload)
+                });
+
+                if (!extractResponse.ok) {
+                    throw new Error(await extractResponse.text());
+                }
+
+                const result = await extractResponse.json();
+                displayResult(result);
+                addToHistory(result);
+                showSuccess(`Generated ${generated.length} bytes & found ${result.statistics.count} messages`);
+            } catch (error) {
+                showError(`Generation failed: ${error.message}`);
+            } finally {
+                showLoading(false);
             }
         }
 
