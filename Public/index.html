@@ -455,9 +455,72 @@
                 max-width: 150px;
             }
         }
+
+        /* WebSocket Status */
+        .ws-status-bar {
+            background: #f8f9ff;
+            border-bottom: 2px solid #e0e0e0;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85em;
+        }
+
+        .ws-info {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        #wsStatus {
+            font-weight: 600;
+        }
+
+        .live-updates {
+            background: #f8f9ff;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .live-update-item {
+            padding: 8px;
+            background: white;
+            border-left: 3px solid #667eea;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            display: flex;
+            justify-content: space-between;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(-10px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
     </style>
 </head>
 <body>
+    <!-- WebSocket Status Bar -->
+    <div class="ws-status-bar">
+        <div class="ws-info">
+            <span id="wsStatus">🔴 Connecting...</span>
+            <span>🌐 <strong id="wsConnections">0</strong> online</span>
+        </div>
+        <span style="color: #999; font-size: 0.8em;">Real-time extraction synchronization enabled</span>
+    </div>
+
     <h1>✨ ERA - ANSI Data Extractor</h1>
 
     <div class="container">
@@ -579,6 +642,12 @@
 
             <div style="text-align: center; color: #999; margin-top: 50px;" id="emptyMessage">
                 <p>👆 Select input method and start extracting</p>
+            </div>
+
+            <!-- Live Updates from WebSocket -->
+            <div class="live-updates" id="liveUpdatesPanel" style="display: none;">
+                <h3 style="margin-bottom: 15px; color: #667eea;">📡 Live Activity</h3>
+                <div id="liveUpdatesList"></div>
             </div>
         </div>
     </div>
@@ -763,6 +832,9 @@
 
             renderTable();
             renderPagination();
+
+            // 🔥 Send extraction result to WebSocket
+            notifyRemoteExtraction(result);
         }
 
         // Render results table
@@ -931,8 +1003,157 @@
             document.getElementById('fileInput').click();
         });
 
+        // ============= WebSocket Support =============
+        let ws = null;
+        let wsConnected = false;
+
+        function initWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/api/ws`;
+
+            try {
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = () => {
+                    wsConnected = true;
+                    console.log('[WebSocket] Connected');
+                    updateWSStatus(true);
+                };
+
+                ws.onmessage = (event) => {
+                    try {
+                        const msg = JSON.parse(event.data);
+                        handleWSMessage(msg);
+                    } catch (e) {
+                        console.log('[WebSocket] Received raw message:', event.data);
+                    }
+                };
+
+                ws.onerror = (error) => {
+                    console.error('[WebSocket] Error:', error);
+                    updateWSStatus(false);
+                };
+
+                ws.onclose = () => {
+                    wsConnected = false;
+                    console.log('[WebSocket] Disconnected');
+                    updateWSStatus(false);
+                    // Attempt reconnect after 3 seconds
+                    setTimeout(initWebSocket, 3000);
+                };
+            } catch (error) {
+                console.error('[WebSocket] Failed to connect:', error);
+            }
+        }
+
+        function handleWSMessage(msg) {
+            console.log('[WebSocket] Message:', msg.type);
+
+            switch (msg.type) {
+                case 'connected':
+                    console.log('Connected! Clients online:', msg.activeConnections);
+                    updateConnectionCount(msg.activeConnections || 1);
+                    break;
+
+                case 'extraction':
+                    // Another user performed an extraction
+                    if (msg.clientId !== getClientId()) {
+                        console.log('Remote extraction from:', msg.clientId);
+                        try {
+                            const extractData = JSON.parse(msg.data);
+                            addRemoteExtractionToUI(extractData);
+                        } catch (e) {
+                            console.error('Failed to parse extraction data:', e);
+                        }
+                    }
+                    break;
+
+                case 'disconnected':
+                    console.log('Client disconnected. Active connections:', msg.activeConnections);
+                    updateConnectionCount(msg.activeConnections || 0);
+                    break;
+
+                case 'status':
+                    updateConnectionCount(msg.activeConnections || 1);
+                    break;
+            }
+        }
+
+        function notifyRemoteExtraction(extractionData) {
+            if (wsConnected && ws) {
+                const wsData = {
+                    resultId: extractionData.id,
+                    clientId: getClientId(),
+                    delimiter: extractionData.delimiter.name,
+                    messageCount: extractionData.statistics.count,
+                    processingTimeMs: extractionData.statistics.duration,
+                    dataProcessedKB: extractionData.statistics.bitsProcessed / 8 / 1024
+                };
+
+                try {
+                    ws.send(JSON.stringify(wsData));
+                    console.log('[WebSocket] Sent extraction notification');
+                } catch (e) {
+                    console.error('[WebSocket] Failed to send:', e);
+                }
+            }
+        }
+
+        function updateWSStatus(connected) {
+            const statusEl = document.getElementById('wsStatus');
+            if (statusEl) {
+                statusEl.textContent = connected ? '🟢 Connected' : '🔴 Disconnected';
+                statusEl.style.color = connected ? '#48bb78' : '#f56565';
+            }
+        }
+
+        function updateConnectionCount(count) {
+            const countEl = document.getElementById('wsConnections');
+            if (countEl) {
+                countEl.textContent = count;
+            }
+        }
+
+        function getClientId() {
+            let id = sessionStorage.getItem('era_client_id');
+            if (!id) {
+                id = 'client_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                sessionStorage.setItem('era_client_id', id);
+            }
+            return id;
+        }
+
+        function addRemoteExtractionToUI(extractData) {
+            const livePanel = document.getElementById('liveUpdatesPanel');
+            if (!livePanel) return;
+
+            const item = document.createElement('div');
+            item.className = 'live-update-item';
+            item.innerHTML = `
+                <span style="color: #667eea; font-weight: 600;">📡 Remote Extraction</span>
+                <span style="font-size: 0.85em; color: #999;">
+                    ${extractData.delimiter} - ${Math.round(extractData.messageCount)} messages (${extractData.processingTimeMs.toFixed(1)}ms)
+                </span>
+            `;
+
+            livePanel.insertBefore(item, livePanel.firstChild);
+
+            // Remove old items (keep only last 5)
+            while (livePanel.children.length > 5) {
+                livePanel.removeChild(livePanel.lastChild);
+            }
+
+            // Fade out animation
+            setTimeout(() => {
+                item.style.opacity = '0.5';
+            }, 2000);
+        }
+
         // Initialize on load
-        window.addEventListener('load', init);
+        window.addEventListener('load', () => {
+            init();
+            initWebSocket();
+        });
     </script>
 </body>
 </html>
