@@ -1,6 +1,6 @@
 # Fly.io configuration for ERA Vapor
 
-app = "era-extractor"
+app = "rme-app"
 primary_region = "cdg"  # Paris (change to your preferred region)
 
 [env]
